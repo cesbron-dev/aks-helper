@@ -24,8 +24,9 @@ func newSyncCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "sync",
-		Short: "Import AKS cluster credentials from Azure",
+		Use:     "sync",
+		Aliases: []string{"get-cred", "get-credentials", "creds", "import"},
+		Short:   "Import AKS cluster credentials from Azure",
 		Long: `Lists your Azure subscriptions and AKS clusters, then stores a kubeconfig for
 each selected cluster under ~/.kube/aks.
 

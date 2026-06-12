@@ -85,6 +85,12 @@ aks remove old-cluster   # forget a stored cluster (Azure is untouched)
 | `remove`      | Delete stored cluster(s).                                          |
 | `shell-init`  | Print the bash/zsh/fish integration function.                     |
 
+Most commands have aliases: `use` → `select`, `switch`; `sync` → `get-cred`,
+`get-credentials`, `creds`, `import`; `list` → `ls`; `current` → `cur`;
+`remove` → `rm`, `delete`. The shell integration also defines the classic
+hyphenated shortcuts **`aks-select`** (= `aks use`) and **`aks-get-cred`**
+(= `aks sync`).
+
 ### Non-interactive use (CI & coding agents)
 
 Every interactive step has a flag-driven equivalent:

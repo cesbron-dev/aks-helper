@@ -16,6 +16,9 @@ The wrapper intercepts 'aks use' (and its aliases) and evaluates the printed
 statement that sets KUBECONFIG, which a child process cannot do on its own.
 Every other subcommand is passed straight through.
 
+It also defines two hyphenated shortcuts that mirror the classic script names:
+'aks-select' (= aks use) and 'aks-get-cred' (= aks sync).
+
 Add to your shell startup file, e.g.:
 
   # ~/.bashrc
@@ -64,6 +67,10 @@ aks() {
       ;;
   esac
 }
+
+# Hyphenated shortcuts mirroring the classic script names.
+aks-select()   { aks use "$@"; }
+aks-get-cred() { aks sync "$@"; }
 `
 
 const fishInit = `# aks-helper shell integration
@@ -78,6 +85,14 @@ function aks
         case '*'
             command aks-helper $argv
     end
+end
+
+# Hyphenated shortcuts mirroring the classic script names.
+function aks-select
+    aks use $argv
+end
+function aks-get-cred
+    aks sync $argv
 end
 `
 
@@ -94,4 +109,8 @@ function aks {
         & aks-helper @args
     }
 }
+
+# Hyphenated shortcuts mirroring the classic script names.
+function aks-select { aks use @args }
+function aks-get-cred { aks sync @args }
 `
