@@ -55,28 +55,42 @@ Add `--skill-only` / `-SkillOnly` to install just the skill. You can also simply
 ask your coding agent: *"install the skill from this repo"* — it will run this
 for you (see [`AGENTS.md`](AGENTS.md)).
 
-### Shell integration (one time)
+### Switching clusters (per terminal)
 
-A child process can't change its parent shell's environment, so `use` prints an
-`export` that a tiny shell function evaluates for you. Add to your shell rc:
+Each shell keeps its **own** `KUBECONFIG`, so different terminals can work on
+different clusters at the same time. A child process can't change its parent
+shell's environment, so pick one of:
+
+#### Subshell — no setup, most reliable on Windows
+
+`aks-helper shell <name>` opens a subshell scoped to a cluster. It works in every
+shell (PowerShell, git-bash, cmd, bash, zsh, fish) with no profile changes and no
+`eval`:
 
 ```sh
-# ~/.bashrc
-eval "$(aks-helper shell-init bash)"
-
-# ~/.zshrc
-eval "$(aks-helper shell-init zsh)"
-
-# ~/.config/fish/config.fish
-aks-helper shell-init fish | source
-
-# PowerShell / pwsh  ($PROFILE)
-aks-helper shell-init powershell | Out-String | Invoke-Expression
+aks-helper shell prod      # opens a shell pinned to 'prod'
+kubectl get nodes          # …talks to prod
+exit                       # back to your previous context
 ```
 
-This defines an `aks` function that wraps the binary; every command works the
-same, but `aks use` also updates `KUBECONFIG` in your current shell. The
-`bash`, `zsh`, `fish`, `powershell` and `pwsh` shells are supported.
+Open a second terminal with `aks-helper shell staging` to work on both at once.
+
+#### In-place shell function
+
+To switch the current shell in place (no nesting), load the wrapper function once
+in your profile — it sets `KUBECONFIG` to the per-cluster file for that shell
+only:
+
+```sh
+eval "$(aks-helper shell-init bash)"                               # ~/.bashrc
+eval "$(aks-helper shell-init zsh)"                                # ~/.zshrc
+aks-helper shell-init fish | source                               # fish
+aks-helper shell-init powershell | Out-String | Invoke-Expression # $PROFILE
+```
+
+Then `aks use my-cluster` updates `KUBECONFIG` in that terminal. Supported:
+`bash`, `zsh`, `fish`, `powershell`, `pwsh`. On Windows, if the function path is
+awkward (calling the binary directly bypasses it), prefer `aks-helper shell`.
 
 ## Usage
 
@@ -84,7 +98,8 @@ same, but `aks use` also updates `KUBECONFIG` in your current shell. The
 az login                 # once, the tool reuses your az session
 
 aks sync                 # fuzzy-pick subscriptions, then clusters, to import
-aks use                  # fuzzy-pick a cluster for this shell
+aks use                  # fuzzy-pick a cluster for this shell (needs shell-init)
+aks-helper shell prod    # …or open a subshell pinned to a cluster (no setup)
 kubectl get nodes        # talks to the selected cluster
 k9s                      # …so does everything else
 
@@ -98,14 +113,15 @@ aks remove old-cluster   # forget a stored cluster (Azure is untouched)
 
 | Command       | Description                                                        |
 | ------------- | ----------------------------------------------------------------- |
-| `sync`        | Import AKS credentials from Azure (interactive or via flags).      |
-| `use [name]`  | Select a cluster for the current shell (sets `KUBECONFIG`).        |
-| `list`        | List stored clusters (`--plain`, `--json`).                        |
-| `current`     | Show the active cluster (`--quiet` for prompts).                   |
-| `exec`        | Run a command against a cluster without touching the shell env.    |
-| `path [name]` | Print a cluster's kubeconfig path (for `--kubeconfig` flags).      |
-| `remove`      | Delete stored cluster(s).                                          |
-| `shell-init`  | Print the bash/zsh/fish integration function.                     |
+| `sync`         | Import AKS credentials from Azure (interactive or via flags).     |
+| `use [name]`   | Select a cluster for the current shell (via the wrapper function). |
+| `shell [name]` | Open a subshell scoped to a cluster (per-terminal, no setup).      |
+| `list`         | List stored clusters (`--plain`, `--json`).                       |
+| `current`      | Show the cluster active in this shell (`--quiet` for prompts).     |
+| `exec`         | Run a command against a cluster without touching the shell env.    |
+| `path [name]`  | Print a cluster's kubeconfig path (for `--kubeconfig` flags).      |
+| `remove`       | Delete stored cluster(s).                                          |
+| `shell-init`   | Print the bash/zsh/fish/powershell integration function.          |
 
 Most commands have aliases: `use` → `select`, `switch`; `sync` → `get-cred`,
 `get-credentials`, `creds`, `import`; `list` → `ls`; `current` → `cur`;

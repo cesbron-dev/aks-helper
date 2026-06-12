@@ -23,16 +23,6 @@ func exportStatement(shell, path string) (string, error) {
 	}
 }
 
-// manualExportHint returns a copy-pasteable command a user can run by hand when
-// no shell integration is installed.
-func manualExportHint(shell, path string) string {
-	stmt, err := exportStatement(shell, path)
-	if err != nil {
-		stmt, _ = exportStatement("posix", path)
-	}
-	return stmt
-}
-
 // posixQuote wraps s in single quotes, which disables every form of expansion,
 // escaping any embedded single quote as the usual '\” sequence.
 func posixQuote(s string) string {
