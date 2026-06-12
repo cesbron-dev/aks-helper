@@ -41,6 +41,7 @@ Typical workflow:
 		newRemoveCmd(),
 		newExecCmd(),
 		newPathCmd(),
+		newShellCmd(),
 		newShellInitCmd(),
 	)
 	return root

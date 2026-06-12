@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/cesbron-dev/aks-helper/internal/config"
 	"github.com/cesbron-dev/aks-helper/internal/ui"
@@ -18,19 +19,20 @@ func newUseCmd() *cobra.Command {
 		Use:     "use [name]",
 		Aliases: []string{"select", "switch"},
 		Short:   "Select a cluster for the current shell",
-		Long: `Selects a stored cluster and points KUBECONFIG at it.
+		Long: `Selects a stored cluster and points KUBECONFIG at it for the current shell.
 
-Because a child process cannot mutate its parent's environment, 'use' prints a
-statement that sets KUBECONFIG. The shell function installed by 'shell-init'
-evaluates it automatically, so once that is set up you can simply run:
+Each shell keeps its own KUBECONFIG, so different terminals can target different
+clusters at the same time.
+
+A child process cannot change its parent shell's environment, so 'use' relies on
+the wrapper function from 'shell-init' (loaded once in your shell profile):
 
   aks use            # fuzzy-pick
   aks use my-cluster # pick by name
 
-Without the shell function:
-  bash/zsh:   eval "$(aks-helper use my-cluster --export)"
-  fish:       aks-helper use my-cluster --export --shell fish | source
-  powershell: aks-helper use my-cluster --export --shell powershell | iex`,
+If you do not want a shell function, 'aks-helper shell my-cluster' opens a
+subshell scoped to a cluster — the most reliable option on Windows (PowerShell
+and git-bash).`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := store()
@@ -58,11 +60,7 @@ Without the shell function:
 				return nil
 			}
 			fmt.Printf("selected %s\n", name)
-			fmt.Fprintf(cmd.ErrOrStderr(),
-				"KUBECONFIG is not set (no shell integration detected).\n"+
-					"Run:  %s\n"+
-					"Or install the shell function once:  eval \"$(aks-helper shell-init bash)\"\n",
-				manualExportHint(shell, path))
+			printUseHint(cmd.ErrOrStderr(), name, path)
 			return nil
 		},
 	}
@@ -70,6 +68,21 @@ Without the shell function:
 	cmd.Flags().BoolVar(&printExport, "export", false, "print the KUBECONFIG statement for eval (used by the shell function)")
 	cmd.Flags().StringVar(&shell, "shell", "posix", "syntax for --export: posix, fish, powershell")
 	return cmd
+}
+
+// printUseHint is shown when 'use' runs outside the shell wrapper (so it could
+// not set KUBECONFIG). It gives shell-correct options without guessing the shell.
+func printUseHint(w io.Writer, name, path string) {
+	posix, _ := exportStatement("posix", path)
+	ps, _ := exportStatement("powershell", path)
+	fmt.Fprintf(w,
+		"KUBECONFIG was not changed (run through the 'aks' function, or use one of):\n"+
+			"  • a subshell scoped to it (any shell, no setup):  aks-helper shell %s\n"+
+			"  • set it yourself:\n"+
+			"      bash/zsh/git-bash : %s\n"+
+			"      PowerShell        : %s\n"+
+			"  • load the wrapper once so 'aks use' does it:      aks-helper shell-init <shell>\n",
+		name, posix, ps)
 }
 
 // resolveName returns the cluster name from args, or prompts for one.
