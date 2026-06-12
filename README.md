@@ -20,6 +20,12 @@ and `fzf` — into a single static Go binary:
 Requires Go 1.25+, the [Azure CLI](https://learn.microsoft.com/cli/azure/)
 (`az`) and [`kubelogin`](https://azure.github.io/kubelogin/) on your `PATH`.
 
+**Prebuilt binaries** for Linux, macOS and Windows (amd64/arm64, plus linux
+armv7) are attached to each [GitHub release](../../releases). Download the
+archive for your platform, extract `aks-helper` and put it on your `PATH`.
+
+**From source:**
+
 ```sh
 git clone https://github.com/cesbron-dev/aks-helper
 cd aks-helper
@@ -41,10 +47,14 @@ eval "$(aks-helper shell-init zsh)"
 
 # ~/.config/fish/config.fish
 aks-helper shell-init fish | source
+
+# PowerShell / pwsh  ($PROFILE)
+aks-helper shell-init powershell | Out-String | Invoke-Expression
 ```
 
 This defines an `aks` function that wraps the binary; every command works the
-same, but `aks use` also updates `KUBECONFIG` in your current shell.
+same, but `aks use` also updates `KUBECONFIG` in your current shell. The
+`bash`, `zsh`, `fish`, `powershell` and `pwsh` shells are supported.
 
 ## Usage
 

@@ -9,7 +9,10 @@ import (
 )
 
 func newUseCmd() *cobra.Command {
-	var printExport bool
+	var (
+		printExport bool
+		shell       string
+	)
 
 	cmd := &cobra.Command{
 		Use:     "use [name]",
@@ -18,13 +21,16 @@ func newUseCmd() *cobra.Command {
 		Long: `Selects a stored cluster and points KUBECONFIG at it.
 
 Because a child process cannot mutate its parent's environment, 'use' prints a
-shell 'export' statement. The shell function installed by 'shell-init' evaluates
-it automatically, so once that is set up you can simply run:
+statement that sets KUBECONFIG. The shell function installed by 'shell-init'
+evaluates it automatically, so once that is set up you can simply run:
 
   aks use            # fuzzy-pick
   aks use my-cluster # pick by name
 
-Without the shell function, run:  eval "$(aks-helper use my-cluster --export)"`,
+Without the shell function:
+  bash/zsh:   eval "$(aks-helper use my-cluster --export)"
+  fish:       aks-helper use my-cluster --export --shell fish | source
+  powershell: aks-helper use my-cluster --export --shell powershell | iex`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := store()
@@ -43,20 +49,26 @@ Without the shell function, run:  eval "$(aks-helper use my-cluster --export)"`,
 			}
 			path := st.Path(name)
 			if printExport {
-				// Consumed by `eval`; keep it to a single, quoted statement.
-				fmt.Printf("export KUBECONFIG=%q\n", path)
+				// Consumed by `eval`/`Invoke-Expression`; one statement only.
+				stmt, err := exportStatement(shell, path)
+				if err != nil {
+					return err
+				}
+				fmt.Println(stmt)
 				return nil
 			}
 			fmt.Printf("selected %s\n", name)
 			fmt.Fprintf(cmd.ErrOrStderr(),
-				"KUBECONFIG is not exported (no shell integration detected).\n"+
-					"Run:  export KUBECONFIG=%q\n"+
-					"Or install the shell function once:  eval \"$(aks-helper shell-init bash)\"\n", path)
+				"KUBECONFIG is not set (no shell integration detected).\n"+
+					"Run:  %s\n"+
+					"Or install the shell function once:  eval \"$(aks-helper shell-init bash)\"\n",
+				manualExportHint(shell, path))
 			return nil
 		},
 	}
 
-	cmd.Flags().BoolVar(&printExport, "export", false, "print 'export KUBECONFIG=...' for eval (used by the shell function)")
+	cmd.Flags().BoolVar(&printExport, "export", false, "print the KUBECONFIG statement for eval (used by the shell function)")
+	cmd.Flags().StringVar(&shell, "shell", "posix", "syntax for --export: posix, fish, powershell")
 	return cmd
 }
 
