@@ -36,15 +36,24 @@ make install          # builds to $(go env GOPATH)/bin/aks-helper
 **One-shot install (binary + agent skill):**
 
 ```sh
-./scripts/install.sh         # macOS / Linux
-pwsh scripts/install.ps1     # Windows
+./scripts/install.sh                  # macOS / Linux — global, all agents
+./scripts/install.sh --agent copilot  # only one agent (claude|copilot|agents)
+./scripts/install.sh --scope local    # into the current project instead of ~/
+pwsh scripts/install.ps1              # Windows
 ```
 
 This builds `aks-helper` onto your PATH and installs the
-[agent skill](#for-coding-agents) globally into `~/.claude/skills`. Add
-`--skill-only` / `-SkillOnly` to install just the skill. You can also simply ask
-your coding agent: *"install the skill from this repo"* — it will run this for
-you (see [`AGENTS.md`](AGENTS.md)).
+[agent skill](#for-coding-agents) in the open `SKILL.md` format, which Claude
+Code and GitHub Copilot both load:
+
+| Scope             | Claude Code        | GitHub Copilot      | Neutral            |
+| ----------------- | ------------------ | ------------------- | ------------------ |
+| global (per-user) | `~/.claude/skills` | `~/.copilot/skills` | `~/.agents/skills` |
+| local (project)   | `.claude/skills`   | `.github/skills`    | `.agents/skills`   |
+
+Add `--skill-only` / `-SkillOnly` to install just the skill. You can also simply
+ask your coding agent: *"install the skill from this repo"* — it will run this
+for you (see [`AGENTS.md`](AGENTS.md)).
 
 ### Shell integration (one time)
 

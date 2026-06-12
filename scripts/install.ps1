@@ -1,7 +1,13 @@
 <#
 .SYNOPSIS
-    Install aks-helper globally on Windows: the binary on your PATH and the agent
-    skill into Claude Code's personal skills directory. Safe to re-run.
+    Install aks-helper on Windows: the binary on your PATH and the agent skill
+    into the skills directories that coding agents read. Safe to re-run.
+
+.PARAMETER Scope
+    'global' (default, into ~/) or 'local' (into the current project).
+
+.PARAMETER Agent
+    'all' (default), 'claude', 'copilot' or 'agents'.
 
 .PARAMETER SkillOnly
     Install only the agent skill.
@@ -11,22 +17,44 @@
 
 .EXAMPLE
     pwsh scripts/install.ps1
-    pwsh scripts/install.ps1 -SkillOnly
+    pwsh scripts/install.ps1 -SkillOnly -Agent copilot
 
 .NOTES
-    Override locations with $env:BINDIR and $env:SKILLS_DIR.
+    Skill locations (Agent Skills spec):
+      global  claude=~/.claude/skills  copilot=~/.copilot/skills  agents=~/.agents/skills
+      local   claude=.claude/skills    copilot=.github/skills     agents=.agents/skills
+    Override the binary dir with $env:BINDIR.
 #>
 [CmdletBinding()]
 param(
+    [ValidateSet('global', 'local')] [string]$Scope = 'global',
+    [ValidateSet('all', 'claude', 'copilot', 'agents')] [string]$Agent = 'all',
     [switch]$SkillOnly,
     [switch]$BinaryOnly
 )
 
 $ErrorActionPreference = 'Stop'
 $RepoRoot  = Split-Path -Parent $PSScriptRoot
-$BinDir    = if ($env:BINDIR)     { $env:BINDIR }     else { Join-Path $env:USERPROFILE '.local\bin' }
-$SkillsDir = if ($env:SKILLS_DIR) { $env:SKILLS_DIR } else { Join-Path $env:USERPROFILE '.claude\skills' }
+$BinDir    = if ($env:BINDIR) { $env:BINDIR } else { Join-Path $env:USERPROFILE '.local\bin' }
 $SkillName = 'aks-access'
+$SkillSrc  = Join-Path $RepoRoot ".claude\skills\$SkillName"
+
+function Get-SkillBase([string]$a) {
+    if ($Scope -eq 'global') {
+        switch ($a) {
+            'claude'  { Join-Path $env:USERPROFILE '.claude\skills' }
+            'copilot' { Join-Path $env:USERPROFILE '.copilot\skills' }
+            'agents'  { Join-Path $env:USERPROFILE '.agents\skills' }
+        }
+    }
+    else {
+        switch ($a) {
+            'claude'  { Join-Path (Get-Location) '.claude\skills' }
+            'copilot' { Join-Path (Get-Location) '.github\skills' }
+            'agents'  { Join-Path (Get-Location) '.agents\skills' }
+        }
+    }
+}
 
 function Install-Binary {
     if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
@@ -44,14 +72,20 @@ function Install-Binary {
 }
 
 function Install-Skill {
-    $src  = Join-Path $RepoRoot ".claude\skills\$SkillName"
-    $dest = Join-Path $SkillsDir $SkillName
-    if (-not (Test-Path (Join-Path $src 'SKILL.md'))) {
-        throw "skill not found at $src"
+    if (-not (Test-Path (Join-Path $SkillSrc 'SKILL.md'))) {
+        throw "skill not found at $SkillSrc"
     }
-    New-Item -ItemType Directory -Force -Path $dest | Out-Null
-    Copy-Item -Recurse -Force -Path (Join-Path $src '*') -Destination $dest
-    Write-Host "Installed skill '$SkillName' -> $dest"
+    $agents = if ($Agent -eq 'all') { @('claude', 'copilot', 'agents') } else { @($Agent) }
+    foreach ($a in $agents) {
+        $dest = Join-Path (Get-SkillBase $a) $SkillName
+        if ((Resolve-Path $SkillSrc).Path -eq $dest) {
+            Write-Host "skipping ${a}: source and destination are the same ($dest)"
+            continue
+        }
+        New-Item -ItemType Directory -Force -Path $dest | Out-Null
+        Copy-Item -Recurse -Force -Path (Join-Path $SkillSrc '*') -Destination $dest
+        Write-Host "Installed skill '$SkillName' ($a, $Scope) -> $dest"
+    }
 }
 
 if (-not $SkillOnly)  { Install-Binary }
@@ -63,5 +97,5 @@ if (-not $SkillOnly) {
     Write-Host "  - Enable shell integration (once): aks-helper shell-init powershell | Out-String | Invoke-Expression"
 }
 if (-not $BinaryOnly) {
-    Write-Host "  - The '$SkillName' skill is now available to Claude Code in every session."
+    Write-Host "  - The '$SkillName' skill is now available to your coding agent(s)."
 }

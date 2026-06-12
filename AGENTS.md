@@ -36,41 +36,51 @@ When the user asks something like *"install the skill from this repo"* /
 describe the steps. The goal is a **global** install so the capability is
 available in every future session, not only this repo.
 
-Preferred path (idempotent, handles binary + skill):
+Preferred path (idempotent, handles binary + skill, all agents):
 
 ```sh
 # macOS / Linux
-./scripts/install.sh
+./scripts/install.sh                 # global, every agent
+./scripts/install.sh --agent copilot # only one agent (claude|copilot|agents)
+./scripts/install.sh --scope local   # into the current project instead of ~/
 
 # Windows (PowerShell)
 pwsh scripts/install.ps1
+pwsh scripts/install.ps1 -Scope local -Agent copilot
 ```
 
 Pass `--skill-only` / `-SkillOnly` if the user only wants the agent skill and
-not the `aks-helper` binary.
+not the `aks-helper` binary. **Ask the user global vs local only if they have not
+already said which they want** (global = available in every project, the usual
+choice; local = this project only).
 
-What the script does, and the manual fallback if it cannot run:
+This skill follows the open [Agent Skills](https://agents.md) `SKILL.md` format,
+which Claude Code **and** GitHub Copilot both load. The skill directories are:
 
-1. **Binary** — build and place `aks-helper` on the PATH:
-   ```sh
-   go build -trimpath -ldflags "-s -w" -o "${GOBIN:-$HOME/.local/bin}/aks-helper" .
-   ```
-2. **Skill (Claude Code)** — copy the self-contained skill into the personal
-   skills directory so it loads in every session:
-   ```sh
-   mkdir -p "$HOME/.claude/skills/aks-access"
-   cp -R .claude/skills/aks-access/. "$HOME/.claude/skills/aks-access/"
-   ```
+| Scope            | Claude Code         | GitHub Copilot       | Neutral             |
+| ---------------- | ------------------- | -------------------- | ------------------- |
+| global (per-user)| `~/.claude/skills`  | `~/.copilot/skills`  | `~/.agents/skills`  |
+| local (project)  | `.claude/skills`    | `.github/skills`     | `.agents/skills`    |
 
-Notes for other agents:
+Note: this repo already ships the skill at `.claude/skills/aks-access`, which
+Copilot also reads at project scope — so within this repo no install is needed;
+installing is about making it available **globally** or in **other** projects.
 
-- **GitHub Copilot / Antigravity / Cursor** consume repo-scoped files
-  (`AGENTS.md`, `.github/copilot-instructions.md`), so a "global" skill install
-  is a Claude Code concept. For these tools, instruct the user to copy `AGENTS.md`
-  (or this file's AKS section) into their target repo, or rely on the per-repo
-  files already present here.
-- After installing, confirm to the user what was installed and where, and remind
-  them to run `az login` and enable shell integration if they want `aks use`.
+Manual fallback if the scripts cannot run (global, all agents):
+
+```sh
+# Binary on PATH
+go build -trimpath -ldflags "-s -w" -o "${GOBIN:-$HOME/.local/bin}/aks-helper" .
+# Self-contained skill into each agent's global dir
+for d in "$HOME/.claude/skills" "$HOME/.copilot/skills" "$HOME/.agents/skills"; do
+  mkdir -p "$d/aks-access" && cp -R .claude/skills/aks-access/. "$d/aks-access/"
+done
+```
+
+GitHub Copilot also has a native installer (`copilot` CLI: skill install with
+`--scope`/`--agent`); using `scripts/install.sh` is equivalent and covers every
+agent at once. After installing, confirm what was installed and where, and remind
+the user to run `az login` and enable shell integration if they want `aks use`.
 
 ## Accessing AKS clusters with aks-helper
 

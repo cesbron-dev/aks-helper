@@ -23,14 +23,25 @@ you have no TTY, so use the non-interactive paths only:
 - On `az login` / `AADSTS` / "not logged in" errors, ask the user to run
   `az login`; you cannot complete it non-interactively.
 
-## Installing the skill globally
+## Installing the skill
 
 If the user asks to "install the skill from this repo", run it for them rather
-than only explaining: `./scripts/install.sh --skill-only` (or
-`pwsh scripts/install.ps1 -SkillOnly` on Windows), or the full
-`./scripts/install.sh` to also build the binary. See `AGENTS.md` for the manual
-fallback. Note that a *global* skill is a Claude Code concept; for Copilot, the
-guidance is the repo-scoped `AGENTS.md` / this file.
+than only explaining. The repo ships an `aks-access` skill in the open
+`SKILL.md` format, which Copilot loads from `~/.copilot/skills` (global) or
+`.github/skills` (project); Copilot also reads `.claude/skills` and
+`.agents/skills`.
+
+Use the bundled installer, which covers every agent and both scopes:
+
+```sh
+./scripts/install.sh                  # global, all agents
+./scripts/install.sh --agent copilot  # Copilot only -> ~/.copilot/skills
+./scripts/install.sh --scope local    # current project only
+pwsh scripts/install.ps1              # Windows
+```
+
+Ask the user global vs local only if they did not already say. Add `--skill-only`
+to skip building the binary. See `AGENTS.md` for the manual fallback.
 
 ## Working on the codebase
 
