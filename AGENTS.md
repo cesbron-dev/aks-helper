@@ -29,6 +29,49 @@ go vet ./...
 Keep `gofmt` and `go vet` clean and add tests for new behaviour. Never commit
 secrets or real kubeconfigs.
 
+## Installing this skill globally (for agents)
+
+When the user asks something like *"install the skill from this repo"* /
+*"installe-moi le skill de ce repo"*, install it autonomously — do not just
+describe the steps. The goal is a **global** install so the capability is
+available in every future session, not only this repo.
+
+Preferred path (idempotent, handles binary + skill):
+
+```sh
+# macOS / Linux
+./scripts/install.sh
+
+# Windows (PowerShell)
+pwsh scripts/install.ps1
+```
+
+Pass `--skill-only` / `-SkillOnly` if the user only wants the agent skill and
+not the `aks-helper` binary.
+
+What the script does, and the manual fallback if it cannot run:
+
+1. **Binary** — build and place `aks-helper` on the PATH:
+   ```sh
+   go build -trimpath -ldflags "-s -w" -o "${GOBIN:-$HOME/.local/bin}/aks-helper" .
+   ```
+2. **Skill (Claude Code)** — copy the self-contained skill into the personal
+   skills directory so it loads in every session:
+   ```sh
+   mkdir -p "$HOME/.claude/skills/aks-access"
+   cp -R .claude/skills/aks-access/. "$HOME/.claude/skills/aks-access/"
+   ```
+
+Notes for other agents:
+
+- **GitHub Copilot / Antigravity / Cursor** consume repo-scoped files
+  (`AGENTS.md`, `.github/copilot-instructions.md`), so a "global" skill install
+  is a Claude Code concept. For these tools, instruct the user to copy `AGENTS.md`
+  (or this file's AKS section) into their target repo, or rely on the per-repo
+  files already present here.
+- After installing, confirm to the user what was installed and where, and remind
+  them to run `az login` and enable shell integration if they want `aks use`.
+
 ## Accessing AKS clusters with aks-helper
 
 `aks-helper` manages AKS kubeconfigs under `~/.kube/aks` and runs commands

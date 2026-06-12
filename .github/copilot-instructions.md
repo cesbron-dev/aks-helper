@@ -23,6 +23,15 @@ you have no TTY, so use the non-interactive paths only:
 - On `az login` / `AADSTS` / "not logged in" errors, ask the user to run
   `az login`; you cannot complete it non-interactively.
 
+## Installing the skill globally
+
+If the user asks to "install the skill from this repo", run it for them rather
+than only explaining: `./scripts/install.sh --skill-only` (or
+`pwsh scripts/install.ps1 -SkillOnly` on Windows), or the full
+`./scripts/install.sh` to also build the binary. See `AGENTS.md` for the manual
+fallback. Note that a *global* skill is a Claude Code concept; for Copilot, the
+guidance is the repo-scoped `AGENTS.md` / this file.
+
 ## Working on the codebase
 
 Go project. Keep it building and clean:

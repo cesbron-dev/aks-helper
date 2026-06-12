@@ -33,6 +33,19 @@ make install          # builds to $(go env GOPATH)/bin/aks-helper
 # or: go install github.com/cesbron-dev/aks-helper@latest
 ```
 
+**One-shot install (binary + agent skill):**
+
+```sh
+./scripts/install.sh         # macOS / Linux
+pwsh scripts/install.ps1     # Windows
+```
+
+This builds `aks-helper` onto your PATH and installs the
+[agent skill](#for-coding-agents) globally into `~/.claude/skills`. Add
+`--skill-only` / `-SkillOnly` to install just the skill. You can also simply ask
+your coding agent: *"install the skill from this repo"* — it will run this for
+you (see [`AGENTS.md`](AGENTS.md)).
+
 ### Shell integration (one time)
 
 A child process can't change its parent shell's environment, so `use` prints an
