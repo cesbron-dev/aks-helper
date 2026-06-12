@@ -126,6 +126,13 @@ Set `AKS_HELPER_DIR` to use a different directory.
 
 ## For coding agents
 
-This repo ships a Claude Code skill at
-[`.claude/skills/aks-access`](.claude/skills/aks-access/SKILL.md) that teaches
-agents how to reach AKS clusters non-interactively via `aks-helper exec`.
+Guidance for AI coding agents is declared agent-agnostically in
+[`AGENTS.md`](AGENTS.md) (the [agents.md](https://agents.md) convention, read by
+GitHub Copilot, Google Antigravity, Cursor, Codex, Gemini CLI, …). Tool-specific
+entry points point at it:
+
+- GitHub Copilot — [`.github/copilot-instructions.md`](.github/copilot-instructions.md)
+- Claude Code — [`.claude/skills/aks-access`](.claude/skills/aks-access/SKILL.md)
+
+They all teach agents to reach AKS clusters non-interactively via
+`aks-helper exec`.
