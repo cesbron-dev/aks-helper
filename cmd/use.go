@@ -71,17 +71,23 @@ and git-bash).`,
 }
 
 // printUseHint is shown when 'use' runs outside the shell wrapper (so it could
-// not set KUBECONFIG). It gives shell-correct options without guessing the shell.
+// not set KUBECONFIG). It explains why and gives shell-correct options without
+// guessing the shell.
 func printUseHint(w io.Writer, name, path string) {
 	posix, _ := exportStatement("posix", path)
 	ps, _ := exportStatement("powershell", path)
 	fmt.Fprintf(w,
-		"KUBECONFIG was not changed (run through the 'aks' function, or use one of):\n"+
-			"  • a subshell scoped to it (any shell, no setup):  aks-helper shell %s\n"+
-			"  • set it yourself:\n"+
+		"\nNote: the 'aks-helper' binary can't change KUBECONFIG in your shell — a\n"+
+			"program can never modify the environment of the shell that launched it.\n"+
+			"That's why 'aks' (a shell function) works but 'aks-helper' can only tell you\n"+
+			"what to run. Pick one:\n\n"+
+			"  • Open a ready-to-use subshell (any shell, no setup):\n"+
+			"      aks-helper shell %s\n"+
+			"  • Load the 'aks' function once so 'aks use' sets it for you:\n"+
+			"      aks-helper shell-init <bash|zsh|fish|powershell>   (add to your profile)\n"+
+			"  • Or set KUBECONFIG yourself in this shell:\n"+
 			"      bash/zsh/git-bash : %s\n"+
-			"      PowerShell        : %s\n"+
-			"  • load the wrapper once so 'aks use' does it:      aks-helper shell-init <shell>\n",
+			"      PowerShell        : %s\n",
 		name, posix, ps)
 }
 

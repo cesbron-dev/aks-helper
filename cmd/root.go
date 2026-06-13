@@ -39,6 +39,7 @@ Typical workflow:
 		newListCmd(),
 		newCurrentCmd(),
 		newRemoveCmd(),
+		newCleanupCmd(),
 		newExecCmd(),
 		newPathCmd(),
 		newShellCmd(),
