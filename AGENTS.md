@@ -146,6 +146,8 @@ aks-helper exec -- kubectl get nodes
   the user rather than guessing.
 - Resolve a cluster's kubeconfig path with `aks-helper path <name>` when a tool
   needs an explicit `--kubeconfig` flag.
+- Never launch the interactive commands `ui`, `shell`, or a bare `use`/`sync`
+  (fuzzy finder) — they need a TTY. Use `exec` and the flag-driven forms instead.
 - Errors mentioning `az login`, `AADSTS`, or `not logged in` mean the Azure
   session expired — tell the user to run `az login`; you cannot complete it
   non-interactively.

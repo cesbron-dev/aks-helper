@@ -102,6 +102,26 @@ aks-helper shell-init fish --install                  # writes ~/.config/fish/co
 aks-helper shell-init powershell --install --file $PROFILE
 ```
 
+## Interactive UI
+
+Prefer something less austere? `aks-helper ui` (alias `tui`) opens a k9s-style
+terminal UI listing your clusters, with live filtering and one-key actions:
+
+```sh
+aks-helper ui
+```
+
+| Key       | Action                                              |
+| --------- | --------------------------------------------------- |
+| `↑`/`↓`   | move                                                |
+| `enter`/`s` | open a subshell scoped to the highlighted cluster |
+| `d`       | delete the cluster (with confirmation)              |
+| `S`       | import from Azure (runs `sync`)                     |
+| `c`       | check/clean stale clusters (runs `cleanup`)         |
+| `/`       | filter by name / subscription / resource group      |
+| `r`       | reload                                              |
+| `q`       | quit                                                |
+
 ## Usage
 
 ```sh
@@ -123,6 +143,7 @@ aks remove old-cluster   # forget a stored cluster (Azure is untouched)
 
 | Command       | Description                                                        |
 | ------------- | ----------------------------------------------------------------- |
+| `ui`           | Browse and manage clusters in an interactive k9s-style TUI.        |
 | `sync`         | Import AKS credentials from Azure (interactive or via flags).     |
 | `use [name]`   | Select a cluster for the current shell (via the wrapper function). |
 | `shell [name]` | Open a subshell scoped to a cluster (per-terminal, no setup).      |
