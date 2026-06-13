@@ -121,6 +121,54 @@ func (c *Client) GetCredentials(ctx context.Context, subscriptionID, resourceGro
 	return err
 }
 
+// ClusterDetail is a subset of `az aks show -o json`.
+type ClusterDetail struct {
+	Name              string `json:"name"`
+	ResourceGroup     string `json:"resourceGroup"`
+	Fqdn              string `json:"fqdn"`
+	PrivateFQDN       string `json:"privateFqdn"`
+	ProvisioningState string `json:"provisioningState"`
+	PowerState        struct {
+		Code string `json:"code"`
+	} `json:"powerState"`
+}
+
+// Show returns details for a single cluster. The boolean is false (with a nil
+// error) when the cluster does not exist, so callers can distinguish a deleted
+// cluster from a transient failure.
+func (c *Client) Show(ctx context.Context, subscriptionID, resourceGroup, name string) (*ClusterDetail, bool, error) {
+	out, err := c.run(ctx, c.AzPath,
+		"aks", "show",
+		"--subscription", subscriptionID,
+		"--resource-group", resourceGroup,
+		"--name", name,
+		"--output", "json",
+	)
+	if err != nil {
+		if isNotFound(err) {
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+	var d ClusterDetail
+	if err := json.Unmarshal(out, &d); err != nil {
+		return nil, false, fmt.Errorf("decoding cluster: %w", err)
+	}
+	return &d, true, nil
+}
+
+// isNotFound reports whether an az error indicates a missing cluster or resource
+// group (as opposed to auth or network problems).
+func isNotFound(err error) bool {
+	msg := strings.ToLower(err.Error())
+	for _, s := range []string{"resourcenotfound", "resourcegroupnotfound", "was not found", "could not be found", "not found"} {
+		if strings.Contains(msg, s) {
+			return true
+		}
+	}
+	return false
+}
+
 // ConvertKubeconfig rewrites the exec credential plugin in dest to use kubelogin
 // with the given login mode (azurecli, devicecode, interactive, spn, ...).
 //

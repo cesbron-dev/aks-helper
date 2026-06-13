@@ -92,6 +92,16 @@ Then `aks use my-cluster` updates `KUBECONFIG` in that terminal. Supported:
 `bash`, `zsh`, `fish`, `powershell`, `pwsh`. On Windows, if the function path is
 awkward (calling the binary directly bypasses it), prefer `aks-helper shell`.
 
+Let aks-helper write the block into your startup file for you (idempotent — it
+updates the block in place on re-run):
+
+```sh
+aks-helper shell-init bash --install                  # writes ~/.bashrc
+aks-helper shell-init zsh  --install                  # writes ~/.zshrc
+aks-helper shell-init fish --install                  # writes ~/.config/fish/config.fish
+aks-helper shell-init powershell --install --file $PROFILE
+```
+
 ## Usage
 
 ```sh
@@ -118,10 +128,24 @@ aks remove old-cluster   # forget a stored cluster (Azure is untouched)
 | `shell [name]` | Open a subshell scoped to a cluster (per-terminal, no setup).      |
 | `list`         | List stored clusters (`--plain`, `--json`).                       |
 | `current`      | Show the cluster active in this shell (`--quiet` for prompts).     |
+| `cleanup`      | Check stored clusters vs Azure; `--prune` deleted, `--refresh` stale. |
 | `exec`         | Run a command against a cluster without touching the shell env.    |
 | `path [name]`  | Print a cluster's kubeconfig path (for `--kubeconfig` flags).      |
 | `remove`       | Delete stored cluster(s).                                          |
-| `shell-init`   | Print the bash/zsh/fish/powershell integration function.          |
+| `shell-init`   | Print (or `--install`) the bash/zsh/fish/powershell function.     |
+
+### Housekeeping
+
+`aks-helper cleanup` checks every stored cluster against Azure and flags those
+that are **gone** (deleted) or **stale** — a cluster deleted and recreated under
+the same name gets a new API server, so the stored credentials no longer work.
+
+```sh
+aks-helper cleanup            # report only
+aks-helper cleanup --prune    # remove clusters deleted in Azure
+aks-helper cleanup --refresh  # re-fetch credentials for recreated/rotated ones
+aks-helper cleanup --prune --refresh --yes
+```
 
 Most commands have aliases: `use` → `select`, `switch`; `sync` → `get-cred`,
 `get-credentials`, `creds`, `import`; `list` → `ls`; `current` → `cur`;

@@ -87,3 +87,16 @@ func (c *Config) ContextNames() []string {
 	}
 	return names
 }
+
+// Server returns the API server URL of the first cluster, or "" if absent. It is
+// used to detect a cluster that was deleted and recreated under the same name:
+// AKS issues a new API server FQDN on recreation.
+func (c *Config) Server() string {
+	if len(c.Clusters) == 0 {
+		return ""
+	}
+	if s, ok := c.Clusters[0].Cluster["server"].(string); ok {
+		return s
+	}
+	return ""
+}
