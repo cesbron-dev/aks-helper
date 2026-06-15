@@ -36,6 +36,7 @@ Typical workflow:
 	root.AddCommand(
 		newSyncCmd(),
 		newUseCmd(),
+		newUICmd(),
 		newListCmd(),
 		newCurrentCmd(),
 		newRemoveCmd(),
