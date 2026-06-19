@@ -12,10 +12,11 @@ func newUICmd() *cobra.Command {
 		Use:     "ui",
 		Aliases: []string{"tui"},
 		Short:   "Browse and manage clusters in an interactive TUI",
-		Long: `Opens a k9s-style terminal UI listing your stored clusters.
+		Long: `Opens a k9s-style terminal UI listing your stored clusters, with a live
+state icon (running/stopped/gone) and Kubernetes version fetched from Azure.
 
-Keys: enter/s open a subshell scoped to the highlighted cluster, d delete,
-S import (sync), c cleanup, r reload, / filter, q quit.`,
+Keys: enter/k launch k9s on the highlighted cluster, s open a subshell, d
+delete, i import (sync), c cleanup, r reload, / filter, q quit.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := store()

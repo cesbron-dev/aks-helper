@@ -68,3 +68,43 @@ func TestEmptyStoreView(t *testing.T) {
 		t.Errorf("empty view unexpected:\n%s", out)
 	}
 }
+
+func TestStateCell(t *testing.T) {
+	st, err := config.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(st.Path("prod"), []byte("apiVersion: v1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_ = st.Save(config.Entry{Name: "prod", SubscriptionID: "sub-id", Subscription: "Sub", ResourceGroup: "rg", ClusterName: "prod", LoginMode: "azurecli"})
+
+	m, err := newModel(Options{Store: st, Self: "aks-helper", ResolveShell: func() (string, error) { return "/bin/sh", nil }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := m.entries[0]
+
+	// Before any fetch: loading placeholder.
+	if got, _ := m.stateCell(e); !strings.Contains(got, "…") {
+		t.Errorf("loading: got %q", got)
+	}
+
+	// Running with a version.
+	m.statusLoaded = true
+	m.statuses = map[string]statusInfo{"prod": {code: "Running", version: "1.29.2", exists: true}}
+	if got, ver := m.stateCell(e); !strings.Contains(got, "run") || ver != "1.29.2" {
+		t.Errorf("running: state=%q version=%q", got, ver)
+	}
+
+	// Deleted cluster.
+	m.statuses = map[string]statusInfo{"prod": {exists: false}}
+	if got, _ := m.stateCell(e); !strings.Contains(got, "gone") {
+		t.Errorf("gone: got %q", got)
+	}
+
+	// Entry without metadata is reported as n/a.
+	if got, _ := m.stateCell(config.Entry{Name: "manual"}); !strings.Contains(got, "n/a") {
+		t.Errorf("n/a: got %q", got)
+	}
+}

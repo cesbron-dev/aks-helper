@@ -127,6 +127,7 @@ type ClusterDetail struct {
 	ResourceGroup     string `json:"resourceGroup"`
 	Fqdn              string `json:"fqdn"`
 	PrivateFQDN       string `json:"privateFqdn"`
+	KubernetesVersion string `json:"kubernetesVersion"`
 	ProvisioningState string `json:"provisioningState"`
 	PowerState        struct {
 		Code string `json:"code"`

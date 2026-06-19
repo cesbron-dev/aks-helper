@@ -105,22 +105,25 @@ aks-helper shell-init powershell --install --file $PROFILE
 ## Interactive UI
 
 Prefer something less austere? `aks-helper ui` (alias `tui`) opens a k9s-style
-terminal UI listing your clusters, with live filtering and one-key actions:
+terminal UI listing your clusters, with a live state icon (● running, ○ stopped,
+✖ gone) and Kubernetes version pulled from Azure, live filtering, and one-key
+actions:
 
 ```sh
 aks-helper ui
 ```
 
-| Key       | Action                                              |
-| --------- | --------------------------------------------------- |
-| `↑`/`↓`   | move                                                |
-| `enter`/`s` | open a subshell scoped to the highlighted cluster |
-| `d`       | delete the cluster (with confirmation)              |
-| `S`       | import from Azure (runs `sync`)                     |
-| `c`       | check/clean stale clusters (runs `cleanup`)         |
-| `/`       | filter by name / subscription / resource group      |
-| `r`       | reload                                              |
-| `q`       | quit                                                |
+| Key         | Action                                              |
+| ----------- | --------------------------------------------------- |
+| `↑`/`↓`     | move                                                |
+| `enter`/`k` | launch **k9s** on the highlighted cluster           |
+| `s`         | open a subshell scoped to the highlighted cluster   |
+| `d`         | delete the cluster (with confirmation)              |
+| `i`         | import from Azure (runs `sync`)                     |
+| `c`         | check/clean stale clusters (runs `cleanup`)         |
+| `/`         | filter by name / subscription / resource group      |
+| `r`         | reload                                              |
+| `q`         | quit                                                |
 
 ## Usage
 
@@ -219,3 +222,7 @@ entry points point at it:
 
 They all teach agents to reach AKS clusters non-interactively via
 `aks-helper exec`.
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE). © 2026 Olivier Cesbron.
