@@ -222,3 +222,7 @@ entry points point at it:
 
 They all teach agents to reach AKS clusters non-interactively via
 `aks-helper exec`.
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE). © 2026 Olivier Cesbron.

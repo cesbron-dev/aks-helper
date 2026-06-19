@@ -57,9 +57,9 @@ jobs:
 
           mkdir -p dist
           if [ "$GOOS" = windows ]; then
-            zip "dist/${name}.zip" "$bin" README.md
+            zip "dist/${name}.zip" "$bin" README.md LICENSE NOTICE
           else
-            tar czf "dist/${name}.tar.gz" "$bin" README.md
+            tar czf "dist/${name}.tar.gz" "$bin" README.md LICENSE NOTICE
           fi
 
       - uses: actions/upload-artifact@v4
