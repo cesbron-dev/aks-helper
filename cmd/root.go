@@ -44,6 +44,7 @@ Typical workflow:
 		newExecCmd(),
 		newPathCmd(),
 		newShellCmd(),
+		newSkillCmd(),
 		newShellInitCmd(),
 	)
 	return root

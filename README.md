@@ -55,6 +55,16 @@ Add `--skill-only` / `-SkillOnly` to install just the skill. You can also simply
 ask your coding agent: *"install the skill from this repo"* — it will run this
 for you (see [`AGENTS.md`](AGENTS.md)).
 
+**From just the binary (no checkout):** the skill is embedded in `aks-helper`, so
+once it's on your `PATH` you can install it without the scripts or repo:
+
+```sh
+aks-helper skill install                  # global, all agents
+aks-helper skill install --agent copilot  # only ~/.copilot/skills
+aks-helper skill install --scope local    # into the current project
+aks-helper skill print                    # dump SKILL.md to stdout
+```
+
 ### Switching clusters (per terminal)
 
 Each shell keeps its **own** `KUBECONFIG`, so different terminals can work on
