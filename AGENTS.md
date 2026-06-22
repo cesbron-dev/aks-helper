@@ -36,7 +36,16 @@ When the user asks something like *"install the skill from this repo"* /
 describe the steps. The goal is a **global** install so the capability is
 available in every future session, not only this repo.
 
-Preferred path (idempotent, handles binary + skill, all agents):
+If `aks-helper` is already on the PATH, the simplest path needs no checkout — the
+skill is embedded in the binary:
+
+```sh
+aks-helper skill install                  # global, all agents
+aks-helper skill install --agent copilot  # claude|copilot|agents
+aks-helper skill install --scope local    # into the current project
+```
+
+Otherwise, from a checkout (idempotent, handles binary + skill, all agents):
 
 ```sh
 # macOS / Linux
