@@ -81,6 +81,9 @@ type model struct {
 	filter  textinput.Model
 	spinner spinner.Model
 
+	importing bool
+	imp       importModel
+
 	filtering bool
 	confirm   string // non-empty => awaiting y/n for deleting this cluster
 	status    string
@@ -266,6 +269,24 @@ func (m model) fetchStatusesCmd() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// While the import wizard is open it owns all input (except resize).
+	if m.importing {
+		if ws, ok := msg.(tea.WindowSizeMsg); ok {
+			m.width, m.height = ws.Width, ws.Height
+		}
+		var cmd tea.Cmd
+		m.imp, cmd = m.imp.update(msg)
+		if m.imp.done {
+			m.importing = false
+			if m.imp.status != "" {
+				m.setOK(m.imp.status)
+			}
+			m.reload()
+			return m, m.refetch()
+		}
+		return m, cmd
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -344,7 +365,9 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case "i":
-		return m, m.execSelf("sync", "import")
+		m.importing = true
+		m.imp = newImportModel(m.opts.Store, m.spinner)
+		return m, m.imp.init()
 	case "c":
 		return m, m.execSelf("cleanup", "cleanup")
 	}
@@ -453,6 +476,10 @@ func (m *model) setOK(s string)  { m.status, m.statusErr = s, false }
 func (m *model) setErr(s string) { m.status, m.statusErr = s, true }
 
 func (m model) View() string {
+	if m.importing {
+		return m.imp.view()
+	}
+
 	var b strings.Builder
 
 	count := len(m.entries)
