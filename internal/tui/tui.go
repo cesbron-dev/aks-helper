@@ -14,6 +14,7 @@ import (
 
 	"github.com/cesbron-dev/aks-helper/internal/azure"
 	"github.com/cesbron-dev/aks-helper/internal/config"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -47,10 +48,6 @@ var (
 	statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("114"))
 	warnStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("203"))
 	dimStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
-
-	runningStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("114"))
-	stoppedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
-	goneStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("203"))
 )
 
 type reloadMsg struct{}
@@ -80,8 +77,9 @@ type model struct {
 	statusLoaded bool
 	azNote       string
 
-	table  table.Model
-	filter textinput.Model
+	table   table.Model
+	filter  textinput.Model
+	spinner spinner.Model
 
 	filtering bool
 	confirm   string // non-empty => awaiting y/n for deleting this cluster
@@ -102,7 +100,14 @@ func newModel(opts Options) (model, error) {
 	)
 	t.SetStyles(tableStyles())
 
-	m := model{opts: opts, table: t, filter: fi, statuses: map[string]statusInfo{}}
+	sp := spinner.New()
+	sp.Spinner = spinner.Spinner{
+		// Braille "dot" animation for the dynamically-fetched state field.
+		Frames: []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
+		FPS:    time.Second / 10,
+	}
+
+	m := model{opts: opts, table: t, filter: fi, spinner: sp, statuses: map[string]statusInfo{}}
 	m.reload()
 	return m, nil
 }
@@ -170,30 +175,34 @@ func (m *model) applyRows() {
 
 // stateCell returns the state icon/label and the version for an entry, based on
 // whatever live status has been fetched so far.
+//
+// The returned strings are deliberately plain (no ANSI styling): bubbles' table
+// measures and truncates cell width without decoding escape sequences, so colour
+// codes inside a cell corrupt the layout.
 func (m *model) stateCell(e config.Entry) (string, string) {
 	if e.SubscriptionID == "" || e.ResourceGroup == "" || e.ClusterName == "" {
-		return dimStyle.Render("— n/a"), ""
+		return "— n/a", ""
 	}
 	info, ok := m.statuses[e.Name]
 	if !ok {
 		if m.statusLoaded {
-			return dimStyle.Render("? unk"), "" // checked but no result (e.g. az missing)
+			return "? unk", "" // checked but no result (e.g. az missing)
 		}
-		return dimStyle.Render("…"), ""
+		return m.spinner.View(), "" // Braille loading animation
 	}
 	if !info.exists {
-		return goneStyle.Render("✖ gone"), ""
+		return "✖ gone", ""
 	}
 	v := info.version
 	switch {
 	case strings.EqualFold(info.code, "Running"):
-		return runningStyle.Render("● run"), v
+		return "● run", v
 	case strings.HasPrefix(info.code, "Stop"), strings.HasPrefix(info.code, "Dealloc"):
-		return stoppedStyle.Render("○ stop"), v
+		return "○ stop", v
 	case info.code == "":
-		return runningStyle.Render("● ok"), v
+		return "● ok", v
 	default:
-		return stoppedStyle.Render("○ " + strings.ToLower(info.code)), v
+		return "○ " + strings.ToLower(info.code), v
 	}
 }
 
@@ -203,7 +212,15 @@ func matches(e config.Entry, q string) bool {
 		strings.Contains(strings.ToLower(e.ResourceGroup), q)
 }
 
-func (m model) Init() tea.Cmd { return m.fetchStatusesCmd() }
+func (m model) Init() tea.Cmd {
+	return tea.Batch(m.spinner.Tick, m.fetchStatusesCmd())
+}
+
+// refetch re-runs the live status query and restarts the loading animation.
+func (m *model) refetch() tea.Cmd {
+	m.statusLoaded = false
+	return tea.Batch(m.spinner.Tick, m.fetchStatusesCmd())
+}
 
 // fetchStatusesCmd queries Azure for the live state of every entry that has
 // enough metadata, concurrently and with a timeout, then delivers them at once.
@@ -257,6 +274,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.applyRows()
 		return m, nil
 
+	case spinner.TickMsg:
+		if m.statusLoaded {
+			return m, nil // stop animating once the state has arrived
+		}
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		m.applyRows() // refresh the Braille frame shown in the loading cells
+		return m, cmd
+
 	case statusesMsg:
 		m.statusLoaded = true
 		if msg.azErr != nil {
@@ -274,11 +300,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.setOK(msg.action + " done")
 		}
 		m.reload()
-		return m, m.fetchStatusesCmd()
+		return m, m.refetch()
 
 	case reloadMsg:
 		m.reload()
-		return m, m.fetchStatusesCmd()
+		return m, m.refetch()
 
 	case tea.KeyMsg:
 		if m.filtering {
@@ -306,7 +332,7 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "r":
 		m.reload()
 		m.setOK("reloading…")
-		return m, m.fetchStatusesCmd()
+		return m, m.refetch()
 	case "enter", "k":
 		return m.launchK9s()
 	case "s":

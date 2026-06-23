@@ -85,9 +85,9 @@ func TestStateCell(t *testing.T) {
 	}
 	e := m.entries[0]
 
-	// Before any fetch: loading placeholder.
-	if got, _ := m.stateCell(e); !strings.Contains(got, "…") {
-		t.Errorf("loading: got %q", got)
+	// Before any fetch: the loading cell shows the Braille spinner frame.
+	if got, _ := m.stateCell(e); got != m.spinner.View() {
+		t.Errorf("loading: got %q, want spinner frame %q", got, m.spinner.View())
 	}
 
 	// Running with a version.
