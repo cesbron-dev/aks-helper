@@ -422,7 +422,7 @@ func (m model) launchK9s() (tea.Model, tea.Cmd) {
 		m.setErr("k9s not found on PATH — install it from https://k9scli.io")
 		return m, nil
 	}
-	c := exec.Command(bin)
+	c := bannerCommand(bin, "Launching k9s for "+name+" …")
 	c.Env = clusterEnv(m.opts.Store, name)
 	return m, tea.ExecProcess(c, func(err error) tea.Msg {
 		return execDoneMsg{action: "k9s (" + name + ")", err: err}
