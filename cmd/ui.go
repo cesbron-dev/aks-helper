@@ -16,7 +16,8 @@ func newUICmd() *cobra.Command {
 state icon (running/stopped/gone) and Kubernetes version fetched from Azure.
 
 Keys: enter/k launch k9s on the highlighted cluster, s open a subshell, d
-delete, i import (sync), c cleanup, r reload, / filter, q quit.`,
+delete, i import from Azure (built-in wizard), c cleanup, r reload, / filter,
+q quit.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := store()

@@ -129,7 +129,7 @@ aks-helper ui
 | `enter`/`k` | launch **k9s** on the highlighted cluster           |
 | `s`         | open a subshell scoped to the highlighted cluster   |
 | `d`         | delete the cluster (with confirmation)              |
-| `i`         | import from Azure (runs `sync`)                     |
+| `i`         | import from Azure (built-in wizard: pick subscription, then clusters) |
 | `c`         | check/clean stale clusters (runs `cleanup`)         |
 | `/`         | filter by name / subscription / resource group      |
 | `r`         | reload                                              |
