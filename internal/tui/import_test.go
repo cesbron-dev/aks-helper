@@ -45,9 +45,9 @@ func TestImportWizardFlow(t *testing.T) {
 	}
 
 	// Toggle the first cluster, then confirm.
-	im, _ = im.update(tea.KeyMsg{Type: tea.KeySpace})
+	im, _ = im.update(tea.KeyMsg{Type: tea.KeyTab})
 	if !im.selected[0] {
-		t.Fatal("space should select the cluster under the cursor")
+		t.Fatal("tab should select the cluster under the cursor")
 	}
 	im, _ = im.update(tea.KeyMsg{Type: tea.KeyEnter})
 	if im.step != stepRunning {
@@ -64,14 +64,41 @@ func TestImportWizardFlow(t *testing.T) {
 func TestImportSelectAllToggle(t *testing.T) {
 	im := newTestImport(t)
 	im, _ = im.update(impClustersMsg{clusters: []azure.Cluster{{Name: "c1"}, {Name: "c2"}}})
-	// 'a' selects all, 'a' again clears.
-	im, _ = im.update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	// ctrl+a selects all, ctrl+a again clears.
+	im, _ = im.update(tea.KeyMsg{Type: tea.KeyCtrlA})
 	if len(im.chosenClusters()) != 2 {
 		t.Fatalf("expected all selected, got %d", len(im.chosenClusters()))
 	}
-	im, _ = im.update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	im, _ = im.update(tea.KeyMsg{Type: tea.KeyCtrlA})
 	if len(im.chosenClusters()) != 0 {
 		t.Fatalf("expected none selected, got %d", len(im.chosenClusters()))
+	}
+}
+
+func TestImportFilter(t *testing.T) {
+	im := newTestImport(t)
+	im, _ = im.update(impSubsMsg{subs: []azure.Subscription{
+		{ID: "s1", Name: "prod-eu"},
+		{ID: "s2", Name: "prod-us"},
+		{ID: "s3", Name: "staging"},
+	}})
+	if got := len(im.filteredIdx()); got != 3 {
+		t.Fatalf("unfiltered: %d", got)
+	}
+
+	// Type "prod" to narrow to two subscriptions.
+	for _, r := range "prod" {
+		im, _ = im.update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	}
+	idx := im.filteredIdx()
+	if len(idx) != 2 {
+		t.Fatalf("filtered: expected 2, got %d", len(idx))
+	}
+
+	// Selecting the first match resolves through the filtered index.
+	im, _ = im.update(tea.KeyMsg{Type: tea.KeyEnter})
+	if im.chosenSub.Name != "prod-eu" {
+		t.Errorf("chosen sub = %q", im.chosenSub.Name)
 	}
 }
 
