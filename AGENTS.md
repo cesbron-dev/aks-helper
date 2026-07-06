@@ -15,7 +15,7 @@ point here:
 
 `aks-helper` is a Go CLI that manages connections to Azure Kubernetes Service
 (AKS) clusters. Layout: `main.go`, commands in `cmd/`, internals in
-`internal/{azure,config,kubeconfig,ui}`.
+`internal/{azure,config,importer,kubeconfig,tui,ui}`.
 
 ### Build, test, lint
 
