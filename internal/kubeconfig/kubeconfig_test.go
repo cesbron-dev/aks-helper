@@ -61,3 +61,77 @@ func TestLoadRenameSaveRoundTrip(t *testing.T) {
 		t.Errorf("users lost: %+v", reloaded.Users)
 	}
 }
+
+const multiContext = `apiVersion: v1
+kind: Config
+current-context: second
+clusters:
+- name: first
+  cluster:
+    server: https://first:443
+- name: second
+  cluster:
+    server: https://second:443
+contexts:
+- name: first
+  context:
+    cluster: first
+    user: user-first
+- name: second
+  context:
+    cluster: second
+    user: user-second
+users:
+- name: user-first
+  user: {}
+- name: user-second
+  user: {}
+`
+
+func TestRenameMultiContext(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "c.yaml")
+	if err := writeFile(path, multiContext); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	// The context named by current-context is renamed; the other is untouched.
+	cfg.Rename("friendly")
+	if cfg.CurrentContext != "friendly" {
+		t.Errorf("CurrentContext = %q", cfg.CurrentContext)
+	}
+	if cfg.Contexts[0].Name != "first" || cfg.Contexts[1].Name != "friendly" {
+		t.Errorf("contexts = %v", cfg.ContextNames())
+	}
+
+	// current-context must always name an existing context.
+	found := false
+	for _, n := range cfg.ContextNames() {
+		if n == cfg.CurrentContext {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("current-context %q points at no context (%v)", cfg.CurrentContext, cfg.ContextNames())
+	}
+}
+
+func TestRenameNoMatchingCurrentContext(t *testing.T) {
+	cfg := &Config{
+		CurrentContext: "missing",
+		Contexts: []NamedContext{
+			{Name: "a"}, {Name: "b"},
+		},
+	}
+	cfg.Rename("friendly")
+	if cfg.CurrentContext != "missing" {
+		t.Errorf("CurrentContext changed to %q", cfg.CurrentContext)
+	}
+	if cfg.Contexts[0].Name != "a" || cfg.Contexts[1].Name != "b" {
+		t.Errorf("contexts renamed: %v", cfg.ContextNames())
+	}
+}

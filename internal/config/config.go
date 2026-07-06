@@ -150,7 +150,7 @@ func (s *Store) Remove(name string) error {
 
 // SetCurrent records the currently selected cluster name.
 func (s *Store) SetCurrent(name string) error {
-	return os.WriteFile(s.currentPath(), []byte(name+"\n"), 0o600)
+	return writeFileAtomic(s.currentPath(), []byte(name+"\n"), 0o600)
 }
 
 // Current returns the currently selected cluster name, or "" if none.
@@ -185,5 +185,27 @@ func (s *Store) saveIndex(index map[string]Entry) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(s.indexPath(), data, 0o600)
+	return writeFileAtomic(s.indexPath(), data, 0o600)
+}
+
+// writeFileAtomic writes data to a temp file in the destination's directory,
+// then renames it over path so an interrupted write never corrupts state.
+func writeFileAtomic(path string, data []byte, mode os.FileMode) error {
+	f, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return err
+	}
+	tmp := f.Name()
+	defer os.Remove(tmp) // no-op after a successful rename
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmp, mode); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }

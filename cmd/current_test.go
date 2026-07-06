@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/cesbron-dev/aks-helper/internal/config"
@@ -54,6 +55,9 @@ func TestCurrentClusterPrefersPerTerminalSignals(t *testing.T) {
 }
 
 func TestResolveShell(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX shell paths do not resolve on windows")
+	}
 	if p, err := resolveShell("/bin/sh"); err != nil || p == "" {
 		t.Errorf("override /bin/sh: p=%q err=%v", p, err)
 	}

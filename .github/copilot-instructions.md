@@ -31,7 +31,14 @@ than only explaining. The repo ships an `aks-access` skill in the open
 `.github/skills` (project); Copilot also reads `.claude/skills` and
 `.agents/skills`.
 
-Use the bundled installer, which covers every agent and both scopes:
+If `aks-helper` is already on the PATH, the simplest path needs no checkout —
+the skill is embedded in the binary:
+
+```sh
+aks-helper skill install                  # global, all agents
+```
+
+Otherwise, use the bundled installer, which covers every agent and both scopes:
 
 ```sh
 ./scripts/install.sh                  # global, all agents

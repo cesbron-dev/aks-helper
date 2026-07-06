@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"text/tabwriter"
+	"time"
 
 	"github.com/cesbron-dev/aks-helper/internal/azure"
 	"github.com/cesbron-dev/aks-helper/internal/config"
@@ -29,6 +31,7 @@ func newCleanupCmd() *cobra.Command {
 		prune   bool
 		refresh bool
 		yes     bool
+		force   bool
 	)
 
 	cmd := &cobra.Command{
@@ -67,13 +70,14 @@ By default 'cleanup' only reports. Use --prune to remove 'gone' clusters and
 				return nil
 			}
 
+			results := checkEntries(ctx, az, st, entries)
+
 			var gone, stale []config.Entry
 			tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 			fmt.Fprintln(tw, "NAME\tSTATE\tDETAIL")
-			for _, e := range entries {
-				state, detail := checkEntry(ctx, az, st, e)
-				fmt.Fprintf(tw, "%s\t%s\t%s\n", e.Name, state, detail)
-				switch state {
+			for i, e := range entries {
+				fmt.Fprintf(tw, "%s\t%s\t%s\n", e.Name, results[i].state, results[i].detail)
+				switch results[i].state {
 				case stateGone:
 					gone = append(gone, e)
 				case stateStale:
@@ -89,7 +93,7 @@ By default 'cleanup' only reports. Use --prune to remove 'gone' clusters and
 
 			if len(gone) > 0 {
 				if prune {
-					if yes || ui.Confirm(fmt.Sprintf("\nRemove %d deleted cluster(s)?", len(gone)), false) {
+					if yes || force || ui.Confirm(fmt.Sprintf("\nRemove %d deleted cluster(s)?", len(gone)), false) {
 						for _, e := range gone {
 							if err := st.Remove(e.Name); err != nil {
 								fmt.Fprintf(os.Stderr, "warning: removing %s: %v\n", e.Name, err)
@@ -105,7 +109,7 @@ By default 'cleanup' only reports. Use --prune to remove 'gone' clusters and
 
 			if len(stale) > 0 {
 				if refresh {
-					if yes || ui.Confirm(fmt.Sprintf("Refresh credentials for %d cluster(s)?", len(stale)), false) {
+					if yes || force || ui.Confirm(fmt.Sprintf("Refresh credentials for %d cluster(s)?", len(stale)), false) {
 						for _, e := range stale {
 							if err := refreshEntry(ctx, az, st, e); err != nil {
 								fmt.Fprintf(os.Stderr, "warning: refreshing %s: %v\n", e.Name, err)
@@ -125,7 +129,37 @@ By default 'cleanup' only reports. Use --prune to remove 'gone' clusters and
 	cmd.Flags().BoolVar(&prune, "prune", false, "remove clusters that no longer exist in Azure")
 	cmd.Flags().BoolVar(&refresh, "refresh", false, "re-fetch credentials for recreated/rotated clusters")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "do not ask for confirmation")
+	cmd.Flags().BoolVar(&force, "force", false, "do not ask for confirmation (alias of --yes)")
 	return cmd
+}
+
+// checkResult pairs a cluster state with its human-readable detail.
+type checkResult struct {
+	state  clusterState
+	detail string
+}
+
+// checkEntries checks every entry against Azure with bounded concurrency and a
+// per-call timeout. Results are indexed by entry position so callers print them
+// in the original order.
+func checkEntries(ctx context.Context, az *azure.Client, st *config.Store, entries []config.Entry) []checkResult {
+	results := make([]checkResult, len(entries))
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 6)
+	for i, e := range entries {
+		wg.Add(1)
+		go func(i int, e config.Entry) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			cctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			defer cancel()
+			state, detail := checkEntry(cctx, az, st, e)
+			results[i] = checkResult{state: state, detail: detail}
+		}(i, e)
+	}
+	wg.Wait()
+	return results
 }
 
 func checkEntry(ctx context.Context, az *azure.Client, st *config.Store, e config.Entry) (clusterState, string) {

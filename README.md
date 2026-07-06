@@ -130,10 +130,13 @@ aks-helper ui
 | `s`         | open a subshell scoped to the highlighted cluster   |
 | `d`         | delete the cluster (with confirmation)              |
 | `i`         | import from Azure (built-in wizard, filterable: pick subscription, then clusters) |
-| `c`         | check/clean stale clusters (runs `cleanup`)         |
+| `c`         | check stored clusters against Azure (runs `cleanup`, report only) |
 | `/`         | filter by name / subscription / resource group      |
 | `r`         | reload                                              |
 | `q`         | quit                                                |
+
+The import wizard always uses the non-interactive `azurecli` login mode; for
+`--login devicecode` or `--admin` credentials, use `aks-helper sync` instead.
 
 ## Usage
 
@@ -167,6 +170,7 @@ aks remove old-cluster   # forget a stored cluster (Azure is untouched)
 | `path [name]`  | Print a cluster's kubeconfig path (for `--kubeconfig` flags).      |
 | `remove`       | Delete stored cluster(s).                                          |
 | `shell-init`   | Print (or `--install`) the bash/zsh/fish/powershell function.     |
+| `skill`        | Install or print the bundled coding-agent skill (`install`, `print`). |
 
 ### Housekeeping
 
@@ -182,8 +186,8 @@ aks-helper cleanup --prune --refresh --yes
 ```
 
 Most commands have aliases: `use` → `select`, `switch`; `sync` → `get-cred`,
-`get-credentials`, `creds`, `import`; `list` → `ls`; `current` → `cur`;
-`remove` → `rm`, `delete`. The shell integration also defines the classic
+`get-credentials`, `creds`, `import`; `shell` → `spawn`; `list` → `ls`;
+`current` → `cur`; `remove` → `rm`, `delete`. The shell integration also defines the classic
 hyphenated shortcuts **`aks-select`** (= `aks use`) and **`aks-get-cred`**
 (= `aks sync`).
 

@@ -72,6 +72,43 @@ func TestCurrentRoundTrip(t *testing.T) {
 	}
 }
 
+func TestAtomicWritesLeaveNoTempFiles(t *testing.T) {
+	st := newTestStore(t)
+	if err := os.WriteFile(st.Path("prod"), []byte("apiVersion: v1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Save(Entry{Name: "prod", Subscription: "Sub"}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if err := st.SetCurrent("prod"); err != nil {
+		t.Fatalf("SetCurrent: %v", err)
+	}
+
+	// Round-trip through a fresh store on the same dir.
+	st2, err := New(st.Dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, ok, err := st2.Get("prod")
+	if err != nil || !ok {
+		t.Fatalf("Get: ok=%v err=%v", ok, err)
+	}
+	if e.Subscription != "Sub" {
+		t.Errorf("Subscription = %q", e.Subscription)
+	}
+	if cur, _ := st2.Current(); cur != "prod" {
+		t.Errorf("Current = %q", cur)
+	}
+
+	leftovers, err := filepath.Glob(filepath.Join(st.Dir, "*.tmp"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(leftovers) != 0 {
+		t.Errorf("temp files left behind: %v", leftovers)
+	}
+}
+
 func TestRemoveClearsCurrent(t *testing.T) {
 	st := newTestStore(t)
 	if err := os.WriteFile(st.Path("dev"), []byte("apiVersion: v1\n"), 0o600); err != nil {

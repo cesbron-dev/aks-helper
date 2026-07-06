@@ -159,11 +159,13 @@ func (c *Client) Show(ctx context.Context, subscriptionID, resourceGroup, name s
 }
 
 // isNotFound reports whether an az error indicates a missing cluster or resource
-// group (as opposed to auth or network problems).
+// group (as opposed to auth or network problems). Only the structured Azure
+// error codes are matched: loose phrases like "not found" would misclassify
+// transient failures, and callers may delete state based on this answer.
 func isNotFound(err error) bool {
 	msg := strings.ToLower(err.Error())
-	for _, s := range []string{"resourcenotfound", "resourcegroupnotfound", "was not found", "could not be found", "not found"} {
-		if strings.Contains(msg, s) {
+	for _, code := range []string{"resourcenotfound", "resourcegroupnotfound"} {
+		if strings.Contains(msg, code) {
 			return true
 		}
 	}
