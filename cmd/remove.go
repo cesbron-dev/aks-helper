@@ -8,7 +8,7 @@ import (
 )
 
 func newRemoveCmd() *cobra.Command {
-	var force bool
+	var force, yes bool
 	cmd := &cobra.Command{
 		Use:     "remove [name...]",
 		Aliases: []string{"rm", "delete"},
@@ -32,7 +32,7 @@ func newRemoveCmd() *cobra.Command {
 					return fmt.Errorf("no stored cluster named %q", name)
 				}
 			}
-			if !force && len(names) > 0 {
+			if !force && !yes && len(names) > 0 {
 				if !ui.Confirm(fmt.Sprintf("Remove %d stored cluster(s)?", len(names)), false) {
 					return fmt.Errorf("aborted")
 				}
@@ -47,5 +47,6 @@ func newRemoveCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "do not ask for confirmation")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "do not ask for confirmation (alias of --force)")
 	return cmd
 }

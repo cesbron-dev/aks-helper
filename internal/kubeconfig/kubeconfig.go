@@ -69,14 +69,25 @@ func (c *Config) Save(path string) error {
 	return os.WriteFile(path, data, 0o600)
 }
 
-// Rename changes the single context name (and the embedded current-context) to
+// Rename changes the active context name (and the embedded current-context) to
 // the provided value. It is used to give stored clusters stable, friendly names
-// regardless of how az named them.
+// regardless of how az named them. With multiple contexts, only the one named
+// by current-context is renamed; when neither a single context nor a matching
+// current-context exists, the file is left untouched so current-context never
+// points at a context that does not exist.
 func (c *Config) Rename(name string) {
 	if len(c.Contexts) == 1 {
 		c.Contexts[0].Name = name
+		c.CurrentContext = name
+		return
 	}
-	c.CurrentContext = name
+	for i := range c.Contexts {
+		if c.Contexts[i].Name == c.CurrentContext {
+			c.Contexts[i].Name = name
+			c.CurrentContext = name
+			return
+		}
+	}
 }
 
 // ContextNames returns the names of every context defined in the file.
