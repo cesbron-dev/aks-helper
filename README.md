@@ -133,7 +133,12 @@ aks-helper ui
 | `c`         | check stored clusters against Azure (runs `cleanup`, report only) |
 | `/`         | filter by name / subscription / resource group      |
 | `r`         | reload                                              |
+| `?`         | full-screen help (keys, state icons, hooks)         |
 | `q`         | quit                                                |
+
+A detail line under the table shows the highlighted cluster's **API server
+URL** (handy to verify a [post-import hook](#hooks) rewrote it), the import
+time and the login mode; the title bar shows the currently selected cluster.
 
 The import wizard always uses the non-interactive `azurecli` login mode; for
 `--login devicecode` or `--admin` credentials, use `aks-helper sync` instead.
@@ -219,10 +224,74 @@ automation. Use `--login devicecode` for headless interactive login, or
 ~/.kube/aks/
 ├── <name>.yaml     # one standalone kubeconfig per cluster
 ├── index.json      # subscription / resource-group metadata
-└── .current        # name of the currently selected cluster
+├── .current        # name of the currently selected cluster
+└── hooks/          # optional extension scripts (see Hooks)
 ```
 
 Set `AKS_HELPER_DIR` to use a different directory.
+
+## Hooks
+
+Hooks let site-specific steps plug into aks-helper — the typical case is a
+company where clusters use VNet integration and the API server must be reached
+through a dedicated proxy, so every imported kubeconfig needs its server URL
+rewritten.
+
+The **`post-import`** hook runs after each cluster is imported (via `sync`, the
+TUI wizard, or `cleanup --refresh`) — after `az aks get-credentials` and the
+kubelogin conversion, and before the cluster is recorded. It may edit the
+kubeconfig in place. If it exits non-zero, the import fails and the kubeconfig
+is removed, so a cluster is never stored with credentials your rewrite step
+could not process.
+
+**Where to put it** (first match wins):
+
+1. `AKS_HELPER_HOOK_POST_IMPORT` — environment variable pointing at any script
+   or program (handy for centrally managed setups);
+2. `~/.kube/aks/hooks/post-import` — Unix: an executable with no extension or
+   `.sh`; Windows: `post-import.ps1`, `.cmd`, `.bat` or `.exe`.
+
+Set `AKS_HELPER_NO_HOOKS=1` to skip all hooks (e.g. while debugging).
+
+**Contract** — the hook receives the kubeconfig path as `$1` and these
+environment variables:
+
+| Variable                       | Value                                   |
+| ------------------------------ | --------------------------------------- |
+| `AKS_HELPER_EVENT`             | `post-import`                           |
+| `AKS_HELPER_KUBECONFIG`        | path of the kubeconfig to post-process  |
+| `AKS_HELPER_CLUSTER`           | stored name                             |
+| `AKS_HELPER_AZURE_CLUSTER`     | AKS resource name                       |
+| `AKS_HELPER_RESOURCE_GROUP`    | resource group                          |
+| `AKS_HELPER_SUBSCRIPTION_ID`   | subscription id                         |
+| `AKS_HELPER_SUBSCRIPTION_NAME` | subscription display name               |
+| `AKS_HELPER_LOGIN_MODE`        | `azurecli`, `devicecode`, `admin`, …    |
+| `AKS_HELPER_STORE_DIR`         | the `~/.kube/aks` directory             |
+
+Hooks time out after 60 seconds.
+
+**Example — route the API server through a corporate proxy** (Unix,
+`~/.kube/aks/hooks/post-import`, `chmod +x`):
+
+```sh
+#!/bin/sh
+set -e
+kubectl --kubeconfig "$AKS_HELPER_KUBECONFIG" config set-cluster "$AKS_HELPER_CLUSTER" \
+  --server "https://aks-proxy.corp.example:443/$AKS_HELPER_AZURE_CLUSTER" \
+  --insecure-skip-tls-verify=false
+```
+
+The same in PowerShell (`~/.kube/aks/hooks/post-import.ps1`):
+
+```powershell
+$ErrorActionPreference = 'Stop'
+kubectl --kubeconfig $env:AKS_HELPER_KUBECONFIG config set-cluster $env:AKS_HELPER_CLUSTER `
+  --server "https://aks-proxy.corp.example:443/$($env:AKS_HELPER_AZURE_CLUSTER)"
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+```
+
+After importing, the TUI's detail line shows the highlighted cluster's server
+URL, so you can check the rewrite at a glance.
 
 ## For coding agents
 

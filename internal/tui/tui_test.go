@@ -16,7 +16,9 @@ func testModel(t *testing.T) model {
 		t.Fatal(err)
 	}
 	for _, n := range []string{"prod", "staging"} {
-		if err := os.WriteFile(st.Path(n), []byte("apiVersion: v1\n"), 0o600); err != nil {
+		kc := "apiVersion: v1\nkind: Config\nclusters:\n- name: " + n +
+			"\n  cluster:\n    server: https://" + n + ".example:443\n"
+		if err := os.WriteFile(st.Path(n), []byte(kc), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		_ = st.Save(config.Entry{Name: n, Subscription: "Sub", ResourceGroup: "rg-" + n, LoginMode: "azurecli"})
@@ -38,10 +40,47 @@ func testModel(t *testing.T) model {
 func TestModelRenders(t *testing.T) {
 	m := testModel(t)
 	out := m.View()
-	for _, want := range []string{"prod", "staging", "cluster(s)", "shell", "filter"} {
+	for _, want := range []string{"prod", "staging", "cluster(s)", "shell", "filter", "help"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("view missing %q\n%s", want, out)
 		}
+	}
+	// The title advertises the currently selected cluster.
+	if !strings.Contains(out, "● prod") {
+		t.Errorf("title missing current cluster marker\n%s", out)
+	}
+}
+
+func TestDetailLineShowsServer(t *testing.T) {
+	m := testModel(t)
+	out := m.View()
+	// Rows are sorted by name, so 'prod' is highlighted first.
+	if !strings.Contains(out, "server: https://prod.example:443") {
+		t.Errorf("detail line missing server URL\n%s", out)
+	}
+	if !strings.Contains(out, "login: azurecli") {
+		t.Errorf("detail line missing login mode\n%s", out)
+	}
+}
+
+func TestHelpOverlayToggles(t *testing.T) {
+	m := testModel(t)
+	nm, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}})
+	m = nm.(model)
+	out := m.View()
+	for _, want := range []string{"help", "k9s", "Hooks", "post-import"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("help overlay missing %q\n%s", want, out)
+		}
+	}
+	// Any key closes the overlay and does not trigger its normal action.
+	nm, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	m = nm.(model)
+	if m.showHelp {
+		t.Error("overlay still open after keypress")
+	}
+	if !strings.Contains(m.View(), "SUBSCRIPTION") {
+		t.Error("main view not restored after closing help")
 	}
 }
 
