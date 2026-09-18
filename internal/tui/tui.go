@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -14,6 +15,8 @@ import (
 
 	"github.com/cesbron-dev/aks-helper/internal/azure"
 	"github.com/cesbron-dev/aks-helper/internal/config"
+	"github.com/cesbron-dev/aks-helper/internal/hooks"
+	"github.com/cesbron-dev/aks-helper/internal/kubeconfig"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -76,6 +79,7 @@ type model struct {
 	statuses     map[string]statusInfo
 	statusLoaded bool
 	azNote       string
+	servers      map[string]string // API server URL per cluster, lazily loaded
 
 	table   table.Model
 	filter  textinput.Model
@@ -84,6 +88,7 @@ type model struct {
 	importing bool
 	imp       importModel
 
+	showHelp  bool
 	filtering bool
 	confirm   string // non-empty => awaiting y/n for deleting this cluster
 	status    string
@@ -110,7 +115,7 @@ func newModel(opts Options) (model, error) {
 		FPS:    time.Second / 10,
 	}
 
-	m := model{opts: opts, table: t, filter: fi, spinner: sp, statuses: map[string]statusInfo{}}
+	m := model{opts: opts, table: t, filter: fi, spinner: sp, statuses: map[string]statusInfo{}, servers: map[string]string{}}
 	m.reload()
 	return m, nil
 }
@@ -151,6 +156,7 @@ func (m *model) reload() {
 	}
 	m.current, _ = m.opts.Store.Current()
 	m.entries = entries
+	m.servers = map[string]string{} // kubeconfigs may have changed (import, hook)
 	m.applyRows()
 }
 
@@ -291,7 +297,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		m.table.SetColumns(columns(msg.Width))
-		m.table.SetHeight(maxInt(3, msg.Height-6))
+		m.table.SetHeight(maxInt(3, msg.Height-7)) // title, detail, status, help, margins
 		m.applyRows()
 		return m, nil
 
@@ -328,6 +334,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.refetch()
 
 	case tea.KeyMsg:
+		if m.showHelp {
+			m.showHelp = false // any key closes the help overlay
+			return m, nil
+		}
 		if m.filtering {
 			return m.updateFiltering(msg)
 		}
@@ -370,6 +380,9 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.imp.init()
 	case "c":
 		return m, m.execSelf("cleanup", "cleanup")
+	case "?":
+		m.showHelp = true
+		return m, nil
 	}
 	var cmd tea.Cmd
 	m.table, cmd = m.table.Update(msg)
@@ -479,11 +492,18 @@ func (m model) View() string {
 	if m.importing {
 		return m.imp.view()
 	}
+	if m.showHelp {
+		return m.helpOverlay()
+	}
 
 	var b strings.Builder
 
 	count := len(m.entries)
-	b.WriteString(titleStyle.Render(fmt.Sprintf(" aks-helper  •  %d cluster(s) ", count)))
+	title := fmt.Sprintf(" aks-helper  •  %d cluster(s) ", count)
+	if m.current != "" {
+		title = fmt.Sprintf(" aks-helper  •  %d cluster(s)  •  ● %s ", count, m.current)
+	}
+	b.WriteString(titleStyle.Render(title))
 	b.WriteString("\n\n")
 
 	if count == 0 {
@@ -497,6 +517,8 @@ func (m model) View() string {
 	}
 
 	b.WriteString(m.table.View())
+	b.WriteString("\n")
+	b.WriteString(m.detailLine())
 	b.WriteString("\n")
 
 	switch {
@@ -513,10 +535,89 @@ func (m model) View() string {
 	case m.azNote != "":
 		b.WriteString(dimStyle.Render(m.azNote))
 	default:
-		b.WriteString(dimStyle.Render("↑/↓ move  •  / filter"))
+		b.WriteString(dimStyle.Render("↑/↓ move  •  / filter  •  ? help"))
 	}
 	b.WriteString("\n")
 	b.WriteString(m.helpView())
+	return b.String()
+}
+
+// detailLine shows the highlighted cluster's API server URL (useful to verify a
+// post-import hook rewrote it), last import time and login mode.
+func (m model) detailLine() string {
+	name := m.selectedName()
+	if name == "" {
+		return ""
+	}
+	parts := []string{"server: " + m.serverFor(name)}
+	for _, e := range m.entries {
+		if e.Name != name {
+			continue
+		}
+		if !e.UpdatedAt.IsZero() {
+			parts = append(parts, "imported: "+e.UpdatedAt.Format("2006-01-02 15:04"))
+		}
+		if e.LoginMode != "" {
+			parts = append(parts, "login: "+e.LoginMode)
+		}
+		break
+	}
+	return dimStyle.Render("  " + strings.Join(parts, "  •  "))
+}
+
+// serverFor returns the API server URL stored in the cluster's kubeconfig,
+// cached until the next reload.
+func (m model) serverFor(name string) string {
+	if s, ok := m.servers[name]; ok {
+		return s
+	}
+	s := "-"
+	if cfg, err := kubeconfig.Load(m.opts.Store.Path(name)); err == nil {
+		if srv := cfg.Server(); srv != "" {
+			s = srv
+		}
+	}
+	m.servers[name] = s // shared map: caching works through the value receiver
+	return s
+}
+
+// helpOverlay is the full-screen key reference toggled with '?'.
+func (m model) helpOverlay() string {
+	var b strings.Builder
+	b.WriteString(titleStyle.Render(" aks-helper  •  help "))
+	b.WriteString("\n\n")
+
+	section := func(name string, rows [][2]string) {
+		b.WriteString(dimStyle.Render("  "+name) + "\n")
+		for _, r := range rows {
+			fmt.Fprintf(&b, "    %s  %s\n", keyStyle.Render(fmt.Sprintf("%-9s", r[0])), r[1])
+		}
+		b.WriteString("\n")
+	}
+
+	section("Navigation", [][2]string{
+		{"↑/↓", "move"},
+		{"/", "filter by name, subscription or resource group (esc clears)"},
+	})
+	section("Actions", [][2]string{
+		{"enter / k", "launch k9s on the highlighted cluster"},
+		{"s", "open a subshell scoped to the highlighted cluster"},
+		{"i", "import from Azure (subscription → clusters wizard)"},
+		{"c", "check stored clusters against Azure (report only)"},
+		{"d", "delete the stored kubeconfig (Azure is never touched)"},
+		{"r", "reload the list and live state"},
+		{"q", "quit"},
+	})
+
+	b.WriteString(dimStyle.Render("  State column") + "\n")
+	b.WriteString("    ● running   ○ stopped   ✖ gone   ⠋ loading   — no metadata\n\n")
+
+	b.WriteString(dimStyle.Render("  Hooks") + "\n")
+	b.WriteString("    An executable at " + filepath.Join(hooks.Dir(m.opts.Store.Dir), hooks.PostImport) + " runs after\n")
+	b.WriteString("    every import to post-process the kubeconfig (e.g. rewrite the API server\n")
+	b.WriteString("    URL for a corporate proxy). See the README \"Hooks\" section.\n\n")
+
+	b.WriteString(helpStyle.Render("  press any key to close"))
 	return b.String()
 }
 
@@ -529,6 +630,7 @@ func (m model) helpView() string {
 		{"c", "cleanup"},
 		{"r", "reload"},
 		{"/", "filter"},
+		{"?", "help"},
 		{"q", "quit"},
 	}
 	var parts []string
