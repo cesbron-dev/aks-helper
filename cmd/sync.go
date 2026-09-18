@@ -35,7 +35,11 @@ clusters (Tab toggles, Enter confirms).
 
 Non-interactive (for automation / coding agents): pass --subscription and
 optionally --cluster, or --all to import every cluster in the matched
-subscriptions without prompting.`,
+subscriptions without prompting.
+
+If a post-import hook is configured (~/.kube/aks/hooks/post-import or
+AKS_HELPER_HOOK_POST_IMPORT), it runs after each import to post-process the
+kubeconfig — see the README "Hooks" section.`,
 		Example: `  aks-helper sync
   aks-helper sync --subscription "Prod" --all
   aks-helper sync --subscription 00000000-0000-0000-0000-000000000000 --cluster my-cluster`,
