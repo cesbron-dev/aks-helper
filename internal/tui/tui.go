@@ -590,7 +590,7 @@ func (m model) helpOverlay() string {
 	section := func(name string, rows [][2]string) {
 		b.WriteString(dimStyle.Render("  "+name) + "\n")
 		for _, r := range rows {
-			b.WriteString(fmt.Sprintf("    %s  %s\n", keyStyle.Render(fmt.Sprintf("%-9s", r[0])), r[1]))
+			fmt.Fprintf(&b, "    %s  %s\n", keyStyle.Render(fmt.Sprintf("%-9s", r[0])), r[1])
 		}
 		b.WriteString("\n")
 	}
